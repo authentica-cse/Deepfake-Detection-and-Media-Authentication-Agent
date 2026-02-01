@@ -12,13 +12,29 @@ def detect_media_type(mime_type: str):
         return "unknown"
 
 
-def route_to_model(media_type: str):
+def routeToModel(media_type, file_bytes=None):
     """
-    Dummy backend routing logic
-    (ML models will be connected later)
+    Route uploaded media to appropriate model
     """
-    if media_type == "unknown":
-        return "Unsupported file", 0.0
+    if media_type == "image":
+        try:
+            import cv2
+            import numpy as np
+            from models.image_model import predict_face
 
-    # Placeholder prediction
-    return "REAL / DEEPFAKE", 0.85
+            # Convert uploaded bytes to OpenCV image
+            image_array = np.frombuffer(file_bytes, np.uint8)
+            img = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
+
+            label, confidence = predict_face(img)
+            return label, confidence
+
+        except Exception as e:
+            return f"Image model error: {str(e)}", 0.0
+
+    elif media_type in ["audio", "video"]:
+        # Still dummy for Day 4
+        return "REAL / DEEPFAKE (audio/video stub)", 0.80
+
+    else:
+        return "Unsupported file type", 0.0
