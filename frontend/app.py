@@ -18,6 +18,7 @@ uploaded_file = st.file_uploader(
 if uploaded_file is not None:
     st.write(f"File name: {uploaded_file.name}")
     st.write(f"MIME type: {uploaded_file.type}")
+    file_bytes = uploaded_file.getvalue()
 
     media_type = detect_media_type(uploaded_file.type)
     st.info(f"Detected media type: {media_type.upper()}")
@@ -33,9 +34,10 @@ if uploaded_file is not None:
         st.error("Unsupported file type")
 
     if st.button("Detect Deepfake"):
-        label, confidence = route_to_model(media_type)
+        label, confidence = route_to_model(media_type, file_bytes)
 
         st.success(f"Prediction: {label}")
         st.write(f"Confidence: {confidence * 100:.2f}%")
+
 
 
