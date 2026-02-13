@@ -16,7 +16,7 @@ DO NOT MODIFY THESE LOGIC GATES:
 - Noise Reduction (0.80): High enough to clean audio, low enough to keep AI artifacts.
 
 DEPENDENCIES:
-Run this to set up the environment:
+Run this to set up the environment:           #yeh sab pehle download kar
 pip install librosa numpy xgboost noisereduce
 
 VERDICT TYPES:
@@ -26,3 +26,4 @@ VERDICT TYPES:
 
 Note: The script handles "Verified Humans" (e.g., baba, maa, reina) 
 differently to prevent false flags on known noisy human samples.
+
