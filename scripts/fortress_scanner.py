@@ -1,4 +1,3 @@
-
 import os
 import sys
 import librosa
@@ -41,7 +40,7 @@ def process_file(file_path):
         y, sr = librosa.load(file_path, sr=16000, duration=3.0)
         y_clean = nr.reduce_noise(y=y, sr=sr, prop_decrease=0.80)
         y_filt = librosa.effects.preemphasis(y_clean)
-        
+
         mfccs = np.mean(librosa.feature.mfcc(y=y_filt, sr=sr, n_mfcc=20).T, axis=0)
         rolloff = np.mean(librosa.feature.spectral_rolloff(y=y_filt, sr=sr).T, axis=0)
         zcr = np.mean(librosa.feature.zero_crossing_rate(y=y_filt).T, axis=0)
@@ -79,10 +78,19 @@ def process_file(file_path):
         print(f"Error on {filename}: {e}")
 
 def run_interface():
-    # Title only - No hardcoded paths shown to user
     print("\n--- Fortress v8 Multi-Device Scanner ---")
-    
-    choice = input("\nEnter '1' for Single File or '2' for Folder: ").strip()
+
+    # --- 🛡️ ENHANCED INPUT VALIDATION ---
+    while True:
+        choice = input("\nEnter '1' for Single File or '2' for Folder: ").strip()
+        
+        # Check if input is exactly '1' or '2'
+        if choice in ['1', '2']:
+            break
+        else:
+            # Rejects alphabets, symbols, and other numbers
+            print("❌ Error: Invalid input. Please enter only the digit 1 or 2.")
+
     path = input("Enter the full path: ").strip().replace('"', '').replace("'", "")
 
     print(f"\n{'FILE NAME':<25} | {'VERDICT':<18} | {'REASON'}")
@@ -92,16 +100,19 @@ def run_interface():
         if os.path.isfile(path):
             process_file(path)
         else:
-            print("❌ Invalid file path.")
+            print(f"❌ Invalid file path: {path}")
+            
     elif choice == '2':
         if os.path.isdir(path):
+            found_files = False
             for f in os.listdir(path):
                 if f.lower().endswith(('.wav', '.mp3', '.m4a', '.flac')):
                     process_file(os.path.join(path, f))
+                    found_files = True
+            if not found_files:
+                print("⚠️ No supported audio files found in this folder.")
         else:
-            print("❌ Invalid folder path.")
-    else:
-        print("❌ Invalid selection.")
-
+            print(f"❌ Invalid folder path: {path}")
 if __name__ == "__main__":
+
     run_interface()
