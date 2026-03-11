@@ -1,67 +1,88 @@
-# scripts/train_image.py
 import torch
-from torch.utils.data import DataLoader
-from scripts.image_dataset import FaceDataset
-from models.image_model import ImageDeepfakeModel
 import torch.nn as nn
 import torch.optim as optim
+from torch.utils.data import DataLoader
 
-device = "cpu"  # change to "cuda" if you have GPU
+from scripts.image_dataset import FaceDataset, train_transform, val_test_transform
+from models.image_model import ImageModel
 
-# Load datasets
-train_ds = FaceDataset("dataset/train")
-val_ds = FaceDataset("dataset/val")
 
-train_loader = DataLoader(train_ds, batch_size=8, shuffle=True)
-val_loader = DataLoader(val_ds, batch_size=8)
+DATASET_DIR = "dataset_large"
+BATCH_SIZE = 32
+EPOCHS = 12
+PATIENCE = 4
+LR = 1e-4
 
-# Model, loss, optimizer
-model = ImageDeepfakeModel().to(device)
-criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), lr=1e-4)
 
-best_val_acc = 0.0  # Track best validation accuracy
+def main():
+    device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
+    print("Using device:", device)
 
-for epoch in range(10):  # Increase epochs if needed
-    # --- Training ---
-    model.train()
-    total, correct = 0, 0
+    train_ds = FaceDataset(f"{DATASET_DIR}/train", train_transform)
+    val_ds   = FaceDataset(f"{DATASET_DIR}/val", val_test_transform)
 
-    for x, y in train_loader:
-        x, y = x.to(device), y.to(device)
-        optimizer.zero_grad()
-        out = model(x)
-        loss = criterion(out, y)
-        loss.backward()
-        optimizer.step()
+    train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE, shuffle=True)
+    val_loader   = DataLoader(val_ds, batch_size=BATCH_SIZE, shuffle=False)
 
-        preds = out.argmax(1)
-        total += y.size(0)
-        correct += (preds == y).sum().item()
+    model = ImageModel().to(device)
 
-    train_acc = correct / total * 100
+    criterion = nn.CrossEntropyLoss(label_smoothing=0.05)
+    optimizer = optim.AdamW(model.parameters(), lr=LR, weight_decay=1e-4)
 
-    # --- Validation ---
-    model.eval()
-    total_val, correct_val = 0, 0
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer, T_max=EPOCHS
+    )
 
-    with torch.no_grad():
-        for x_val, y_val in val_loader:
-            x_val, y_val = x_val.to(device), y_val.to(device)
-            out_val = model(x_val)
-            preds_val = out_val.argmax(1)
-            total_val += y_val.size(0)
-            correct_val += (preds_val == y_val).sum().item()
+    best_loss = float("inf")
+    patience_counter = 0
 
-    val_acc = correct_val / total_val * 100
+    for epoch in range(EPOCHS):
+        model.train()
+        train_loss = 0
 
-    print(f"Epoch {epoch+1}: Train Acc: {train_acc:.2f}%, Val Acc: {val_acc:.2f}%")
+        for x, y in train_loader:
+            x, y = x.to(device), y.to(device)
 
-    # Save best model
-    if val_acc > best_val_acc:
-        best_val_acc = val_acc
-        torch.save(model.state_dict(), "models/best_image_model.pth")
-        print(f"--> New best model saved with Val Acc: {best_val_acc:.2f}%")
+            optimizer.zero_grad()
+            out = model(x)
+            loss = criterion(out, y)
+            loss.backward()
+            optimizer.step()
 
-print("Training complete.")
+            train_loss += loss.item()
+
+        train_loss /= len(train_loader)
+
+        model.eval()
+        val_loss = 0
+
+        with torch.no_grad():
+            for x, y in val_loader:
+                x, y = x.to(device), y.to(device)
+                out = model(x)
+                loss = criterion(out, y)
+                val_loss += loss.item()
+
+        val_loss /= len(val_loader)
+
+        scheduler.step()
+
+        print(f"Epoch {epoch+1}/{EPOCHS} | Train: {train_loss:.4f} | Val: {val_loss:.4f}")
+
+        if val_loss < best_loss:
+            best_loss = val_loss
+            patience_counter = 0
+            torch.save(model.state_dict(), "models/image_model.pth")
+            print("Model saved")
+        else:
+            patience_counter += 1
+            print(f"No improvement ({patience_counter}/{PATIENCE})")
+
+        if patience_counter >= PATIENCE:
+            print("Early stopping")
+            break
+
+
+if __name__ == "__main__":
+    main()
 

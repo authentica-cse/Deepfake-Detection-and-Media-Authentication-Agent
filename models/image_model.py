@@ -1,15 +1,14 @@
-import torch
 import torch.nn as nn
-import timm
+from torchvision import models
 
-class ImageDeepfakeModel(nn.Module):
-    def __init__(self):
+
+class ImageModel(nn.Module):
+    def __init__(self, num_classes=2):
         super().__init__()
-        self.model = timm.create_model(
-            "efficientnet_b0",
-            pretrained=True,
-            num_classes=2
-        )
+
+        self.model = models.efficientnet_b0(weights="IMAGENET1K_V1")
+        in_features = self.model.classifier[1].in_features
+        self.model.classifier[1] = nn.Linear(in_features, num_classes)
 
     def forward(self, x):
         return self.model(x)

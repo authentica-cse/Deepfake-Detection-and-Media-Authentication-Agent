@@ -1,18 +1,24 @@
 # scripts/test_images.py
 import os
+import cv2
 import torch
-from models.image_model import ImageDeepfakeModel
-from utils.face_utils import extract_face
-from torchvision import transforms
 from PIL import Image
+from torchvision import transforms
 
-# Load model
-model = ImageDeepfakeModel()
-model.load_state_dict(torch.load("models/image_model.pth", map_location="cpu"))
+from models.image_model import ImageModel
+from utils.face_utils import detect_face
+
+# ------------------ Setup ------------------
+
+device = torch.device("cpu")
+
+model = ImageModel()
+model.load_state_dict(torch.load("models/image_model.pth", map_location=device))
+model.to(device)
 model.eval()
 
-# Transformation
 transform = transforms.Compose([
+    transforms.Resize((224, 224)),
     transforms.ToTensor(),
     transforms.Normalize(
         mean=[0.485, 0.456, 0.406],
@@ -20,27 +26,39 @@ transform = transforms.Compose([
     )
 ])
 
-# Test dataset path
-test_dir = "dataset/test"
+test_dir = "dataset_subset/test"
 classes = ["real", "fake"]
 
 total, correct = 0, 0
 
+# ------------------ Testing Loop ------------------
+
 for label_idx, cls in enumerate(classes):
     folder = os.path.join(test_dir, cls)
+
     for img_name in os.listdir(folder):
         img_path = os.path.join(folder, img_name)
-        face = extract_face(img_path)
 
+        # 1️⃣ Read image
+        image = cv2.imread(img_path)
+        if image is None:
+            continue
+
+        # 2️⃣ Detect face (PASS IMAGE, NOT PATH)
+        face = detect_face(image)
         if face is None:
-            image = Image.open(img_path).resize((224, 224))
-        else:
-            image = Image.fromarray(face)
+            continue
 
-        x = transform(image).unsqueeze(0)
+        # 3️⃣ OpenCV → PIL
+        face = cv2.cvtColor(face, cv2.COLOR_BGR2RGB)
+        face = Image.fromarray(face)
 
+        # 4️⃣ Transform + batch
+        face = transform(face).unsqueeze(0).to(device)
+
+        # 5️⃣ Predict
         with torch.no_grad():
-            out = model(x)
+            out = model(face)
             probs = torch.softmax(out, dim=1)
             conf, pred = torch.max(probs, 1)
 
@@ -51,6 +69,8 @@ for label_idx, cls in enumerate(classes):
         if pred.item() == label_idx:
             correct += 1
 
-accuracy = correct / total * 100
+# ------------------ Accuracy ------------------
+
+accuracy = correct / total * 100 if total > 0 else 0
 print(f"\nTest Accuracy: {accuracy:.2f}% ({correct}/{total})")
 
