@@ -1,6 +1,6 @@
-dataset/
+dataset_large/
+dataset_subset/
 venv/
 __pycache__/
 *.pyc
 .DS_Store
-models/image_model.pth
