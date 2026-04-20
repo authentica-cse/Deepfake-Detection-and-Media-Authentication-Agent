@@ -6,7 +6,7 @@ from utils.detector import detect_file_type
 
 st.set_page_config(page_title="Deepfake Detector", layout="centered")
 
-st.title("AI Media Authentication System")
+st.title("Aunthetica AI powered deepfake detection")
 
 # Upload file
 user_file = st.file_uploader("Upload an image / video / audio file")
