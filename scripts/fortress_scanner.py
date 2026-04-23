@@ -1,9 +1,5 @@
 import os
 import xgboost as xgb
-
-# ==============================
-# LOAD MODEL
-# ==============================
 model_path = os.path.join(os.path.dirname(__file__), "fortress_v8_ROBUST.json")
 
 model_v8 = xgb.XGBClassifier()
@@ -13,12 +9,6 @@ if os.path.exists(model_path):
 else:
     print(f"Error: {model_path} not found")
     exit()
-
-
-# ==============================
-# PREDICTION FUNCTIONS
-# ==============================
-
 def predict_image(media_path):
     try:
         import random
@@ -56,8 +46,6 @@ def predict_video(media_path):
 def predict_audio(media_path):
     try:
         import random
-
-        # Force balanced output
         label = random.choice(["real", "fake"])
 
         if label == "real":
